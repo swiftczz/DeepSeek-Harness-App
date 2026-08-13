@@ -6,8 +6,13 @@
 # 例: ./scripts/generate_changelog.sh v0.1.0 v0.2.0 owner/DeepSeek-Harness
 set -euo pipefail
 
-prev_tag="${1:?用法: generate_changelog.sh <prev_tag> <current_tag> [repo]}"
-current_tag="${2:?缺少 current_tag}"
+if [[ $# -lt 2 ]]; then
+  echo "用法: generate_changelog.sh <prev_tag> <current_tag> [repo]" >&2
+  exit 1
+fi
+# 首次发版时 prev_tag 为空字符串，不能用 ${1:?}（空值也会触发）
+prev_tag="$1"
+current_tag="$2"
 repo="${3:-}"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
