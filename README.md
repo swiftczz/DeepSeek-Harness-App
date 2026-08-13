@@ -54,21 +54,6 @@ xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness.app"
 open "dist/DeepSeek Harness.app"
 ```
 
-调试构建：
-
-```bash
-./scripts/build.sh debug
-open "dist/DeepSeek Harness.app"
-```
-
-也可以直接：
-
-```bash
-swift build -c release
-```
-
-可执行文件在 `.build/release/DshApp`。要进 Dock / 用图标启动，需要走上面的 `scripts/build.sh`，它会打成 `.app`（ad-hoc 签名，适合本机测试）。
-
 ### 构建发布 DMG
 
 ```bash
