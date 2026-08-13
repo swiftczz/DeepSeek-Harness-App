@@ -11,6 +11,19 @@ dmg_name_prefix="DeepSeek-Harness"
 entitlements="$root/Packaging/DshApp.entitlements"
 dist_dir="$root/dist"
 
+# PCM 会写入编译时的绝对路径。仓库挪过目录后，旧 .build 会报
+# "was compiled with module cache path ... missing required module 'SwiftShims'"。
+clear_stale_module_cache() {
+  local pcm
+  pcm="$(find "$root/.build" -name 'SwiftShims*.pcm' -print -quit 2>/dev/null || true)"
+  [[ -n "$pcm" ]] || return 0
+  if grep -aFq -- "$root/.build" "$pcm"; then
+    return 0
+  fi
+  echo "==> Stale module cache from a previous project path; cleaning .build"
+  rm -rf "$root/.build"
+}
+
 # 版本号优先级：环境变量 APP_VERSION > 最近的 git tag（去掉 v 前缀）> Info.plist 里的值 > 0.0.0-dev
 resolve_version() {
   if [[ -n "${APP_VERSION:-}" ]]; then
@@ -93,6 +106,7 @@ build_local() {
   esac
 
   resolve_version
+  clear_stale_module_cache
   swift build -c "$configuration" --product "$product_name"
 
   local bin_dir binary
@@ -137,6 +151,7 @@ build_only() {
   esac
 
   resolve_version
+  clear_stale_module_cache
   echo "==> Building $arch (version $APP_VERSION)"
   swift build "${build_args[@]}"
 
