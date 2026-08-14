@@ -11,13 +11,11 @@
 ## 启动流程
 
 1. 在常见路径（Homebrew、nvm、fnm、volta、asdf、nodenv）以及登录 shell 的 PATH 里查找 Node
-2. 只使用 `~/.dshapp/runtime` 里的 DSH，不读取 PATH 上的 `dsh`，也不用全局 npm 包
-3. 若还没有（或上次安装中断），优先用本机 bun（没有则用 npm）把 `@deepseek-ai/dsh` 装到该目录，大约三百兆；中断留下的不完整文件会先清空再重下。源跟系统 `npm config get registry` 一致，这个源不通才改试 npmmirror / npmjs。运行仍使用 Node。
+2. 使用 `~/.dshapp/runtime` 里的 DSH
+3. 若还没有，优先用本机 bun（没有则用 npm）把 `@deepseek-ai/dsh` 装到该目录，大约三百兆。源跟系统 `npm config get registry` 一致，这个源不通才改试 npmmirror / npmjs。运行仍使用 Node。
 4. 执行 `node --expose-internals <入口> web --host 127.0.0.1 --port 0`
 5. 从进程输出解析 `dsh web: http://127.0.0.1:<端口>`，在窗口中打开
 6. 退出时结束 dsh 进程组
-
-以前装在 `~/.deepseek-harness`、`~/.DeepSeek Harness/runtime` 或 `~/Library/Application Support/DeepSeek Harness/runtime` 的副本，启动时会自动迁到新目录。
 
 会话导出和带 `Content-Disposition: attachment` 的下载会存到 `~/Downloads`，并在 Finder 中显示。
 
