@@ -57,7 +57,7 @@ final class DshServer: @unchecked Sendable {
     ) throws {
         stop()
 
-        DshLog.append("[dsh] node=\(plan.nodeURL.path) entry=\(plan.entryURL.path) source=\(plan.source.rawValue) version=\(plan.version ?? "unknown")\n")
+        DshLog.append("[dsh] node=\(plan.nodeURL.path) entry=\(plan.entryURL.path) version=\(plan.version ?? "unknown")\n")
 
         let process = Process()
         process.executableURL = plan.nodeURL
@@ -112,7 +112,7 @@ final class DshServer: @unchecked Sendable {
             if !already {
                 onFailure(error)
             } else {
-                onFailure(error)
+                self.forwardCrash(error)
             }
         }
 

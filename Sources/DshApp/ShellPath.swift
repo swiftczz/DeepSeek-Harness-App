@@ -55,6 +55,7 @@ enum ShellPath {
         }
 
         directories.append(contentsOf: [
+            "\(home)/.bun/bin",
             "\(home)/.local/share/fnm/aliases/default/bin",
             "\(home)/Library/Application Support/fnm/aliases/default/bin",
             "\(home)/.fnm/aliases/default/bin",
@@ -78,13 +79,7 @@ enum ShellPath {
         } catch {
             return nil
         }
-
-        let deadline = Date().addingTimeInterval(3)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
-        }
-        if process.isRunning {
-            process.terminate()
+        guard process.wait(timeout: 3) else {
             return nil
         }
 
@@ -95,5 +90,26 @@ enum ShellPath {
             return nil
         }
         return URL(fileURLWithPath: text).resolvingSymlinksInPath()
+    }
+}
+
+extension Process {
+    /// Wait for exit, or terminate after `timeout` seconds. Returns false if it timed out.
+    func wait(timeout: TimeInterval) -> Bool {
+        let lock = NSLock()
+        var timedOut = false
+        let watchdog = DispatchWorkItem { [self] in
+            guard isRunning else { return }
+            lock.lock()
+            timedOut = true
+            lock.unlock()
+            terminate()
+        }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
+        waitUntilExit()
+        watchdog.cancel()
+        lock.lock()
+        defer { lock.unlock() }
+        return !timedOut
     }
 }

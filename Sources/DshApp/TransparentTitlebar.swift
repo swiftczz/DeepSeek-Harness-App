@@ -23,7 +23,7 @@ enum TitlebarChrome {
         stripMaterials(in: window)
     }
 
-    static func update(width: CGFloat, sidebar: NSColor) {
+    static func update(width: CGFloat, sidebar: Color) {
         guard width > 0 else {
             clear()
             return
@@ -32,7 +32,7 @@ enum TitlebarChrome {
             stripMaterials(in: window)
             installFill(in: window)
         }
-        fillView?.sidebarColor = sidebar
+        fillView?.sidebarColor = NSColor(sidebar)
         fillView?.sidebarWidth = width
     }
 

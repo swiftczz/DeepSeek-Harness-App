@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "dsh-app-swift",
+    name: "dshapp",
     platforms: [
         .macOS(.v26)
     ],
@@ -16,10 +16,6 @@ let package = Package(
             path: "Sources/DshApp",
             resources: [
                 .process("Resources")
-            ],
-            linkerSettings: [
-                .linkedFramework("SwiftUI"),
-                .linkedFramework("WebKit"),
             ]
         )
     ]

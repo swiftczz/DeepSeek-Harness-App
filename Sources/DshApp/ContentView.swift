@@ -1,7 +1,5 @@
 import SwiftUI
 
-private let appWillTerminate = Notification.Name("NSApplicationWillTerminateNotification")
-
 struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
@@ -18,8 +16,10 @@ struct ContentView: View {
             case .ready(let url):
                 DshSessionView(url: url, openURL: openURL, isPainted: $sessionPainted)
                     .id(url)
-            case .starting, .installing:
+            case .starting:
                 Color.clear
+            case .installing(let message):
+                InstallProgressScreen(status: message, detail: model.installProgress)
             }
         }
         .ignoresSafeArea()
@@ -61,7 +61,7 @@ struct ContentView: View {
                 model.skipPendingUpdate()
             }
         } message: { info in
-            Text("本地 DSH \(info.latest) 可用，当前为 \(info.current)。点更新会装到应用支持目录并重启本地服务，不会重装桌面应用。")
+            Text("本地 DSH \(info.latest) 可用，当前为 \(info.current)。点更新会装到 \(AppPaths.runtimeDisplayPath) 并重启本地服务，不会重装桌面应用。")
         }
         .onChange(of: model.phase) { _, phase in
             if case .ready = phase { return }
@@ -72,19 +72,22 @@ struct ContentView: View {
         .task {
             await model.startIfNeeded()
         }
-        .onReceive(NotificationCenter.default.publisher(for: appWillTerminate)) { _ in
-            model.stop()
-        }
     }
 
     private var showsSplash: Bool {
         switch model.phase {
         case .failed:
             false
-        case .starting, .installing:
+        case .starting:
             true
+        case .installing:
+            false
         case .ready:
-            !sessionPainted || !splashSettled
+            if model.skipLaunchSplash {
+                false
+            } else {
+                !sessionPainted || !splashSettled
+            }
         }
     }
 

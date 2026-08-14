@@ -1,16 +1,27 @@
 import Foundation
 
 struct DshLaunchPlan: Sendable {
-    enum Source: String, Sendable {
-        case managed
-        case path
-        case globalNpm
-    }
-
     let nodeURL: URL
     let entryURL: URL
-    let source: Source
     let version: String?
+}
+
+enum PackageInstaller: Sendable {
+    case bun(URL)
+    case npm(URL)
+
+    var name: String {
+        switch self {
+        case .bun: "bun"
+        case .npm: "npm"
+        }
+    }
+
+    var executable: URL {
+        switch self {
+        case .bun(let url), .npm(let url): url
+        }
+    }
 }
 
 enum DshResolver {
@@ -25,47 +36,63 @@ enum DshResolver {
         ShellPath.findExecutable("npm")
     }
 
-    static func resolveLaunchPlan(preferManaged: Bool = false) throws -> DshLaunchPlan? {
-        let node = try findNode()
+    static func findBun() -> URL? {
+        ShellPath.findExecutable("bun")
+    }
+
+    static func findInstaller() throws -> PackageInstaller {
+        if let bun = findBun() {
+            return .bun(bun)
+        }
+        if let npm = findNpm() {
+            return .npm(npm)
+        }
+        throw DshError.missingInstaller
+    }
+
+    static var hasManagedRuntime: Bool {
         let fm = FileManager.default
+        return fm.isReadableFile(atPath: AppPaths.managedEntry.path)
+            && fm.isReadableFile(atPath: AppPaths.managedReadyStamp.path)
+    }
 
-        if preferManaged || fm.isReadableFile(atPath: AppPaths.managedEntry.path) {
-            if fm.isReadableFile(atPath: AppPaths.managedEntry.path) {
-                return DshLaunchPlan(
-                    nodeURL: node,
-                    entryURL: AppPaths.managedEntry,
-                    source: .managed,
-                    version: readVersion(at: AppPaths.managedEntry)
-                )
-            }
-            if preferManaged {
-                return nil
-            }
+    static var hasIncompleteRuntime: Bool {
+        FileManager.default.fileExists(atPath: AppPaths.managedRuntimeDirectory.path)
+            && !hasManagedRuntime
+    }
+
+    static func markRuntimeReady() {
+        let stamp = AppPaths.managedReadyStamp
+        try? FileManager.default.createDirectory(
+            at: stamp.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? "ok\n".write(to: stamp, atomically: true, encoding: .utf8)
+    }
+
+    static func clearRuntimeReady() {
+        try? FileManager.default.removeItem(at: AppPaths.managedReadyStamp)
+    }
+
+    static func removeIncompleteRuntime() throws {
+        guard !hasManagedRuntime else { return }
+        let url = AppPaths.managedRuntimeDirectory
+        if FileManager.default.fileExists(atPath: url.path) {
+            DshLog.append("[install] removing incomplete runtime at \(url.path)\n")
+            try FileManager.default.removeItem(at: url)
         }
+    }
 
-        if let dsh = ShellPath.findExecutable("dsh") {
-            return DshLaunchPlan(
-                nodeURL: node,
-                entryURL: dsh,
-                source: .path,
-                version: readVersion(at: dsh)
-            )
+    static func resolveLaunchPlan() throws -> DshLaunchPlan? {
+        let node = try findNode()
+        guard hasManagedRuntime else {
+            return nil
         }
-
-        if let npm = findNpm(),
-           let globalRoot = npmPrefixRoot(npm: npm) {
-            let entry = globalRoot.appendingPathComponent("@deepseek-ai/dsh/lib/bin.js")
-            if fm.isReadableFile(atPath: entry.path) {
-                return DshLaunchPlan(
-                    nodeURL: node,
-                    entryURL: entry,
-                    source: .globalNpm,
-                    version: readVersion(at: entry)
-                )
-            }
-        }
-
-        return nil
+        return DshLaunchPlan(
+            nodeURL: node,
+            entryURL: AppPaths.managedEntry,
+            version: readVersion(at: AppPaths.managedEntry)
+        )
     }
 
     static func readVersion(at entry: URL) -> String? {
@@ -78,26 +105,5 @@ enum DshResolver {
             return nil
         }
         return version
-    }
-
-    private static func npmPrefixRoot(npm: URL) -> URL? {
-        let process = Process()
-        process.executableURL = npm
-        process.arguments = ["root", "-g"]
-        process.environment = ShellPath.processEnvironment()
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        process.standardInput = FileHandle.nullDevice
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            return nil
-        }
-        let text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !text.isEmpty else { return nil }
-        return URL(fileURLWithPath: text)
     }
 }

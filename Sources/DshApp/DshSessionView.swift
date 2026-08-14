@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import WebKit
 
@@ -105,7 +104,7 @@ struct DshSessionView: View {
         return 0
     }
 
-    private static func color(from css: String?) -> NSColor? {
+    private static func color(from css: String?) -> Color? {
         guard let value = css?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
               !value.isEmpty, value != "transparent" else { return nil }
         guard let open = value.firstIndex(of: "("),
@@ -120,11 +119,11 @@ struct DshSessionView: View {
         let b = parts[2]
         let a = parts.count >= 4 ? parts[3] : 1
         let scaled = r > 1 || g > 1 || b > 1
-        return NSColor(
-            srgbRed: scaled ? r / 255 : r,
+        return Color(
+            red: scaled ? r / 255 : r,
             green: scaled ? g / 255 : g,
             blue: scaled ? b / 255 : b,
-            alpha: a > 1 ? a / 255 : a
+            opacity: a > 1 ? a / 255 : a
         )
     }
 

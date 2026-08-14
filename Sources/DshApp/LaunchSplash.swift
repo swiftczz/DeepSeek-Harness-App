@@ -10,7 +10,6 @@ struct LaunchSplash: View {
     @Binding var settled: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
-    @State private var bouncePlay = false
 
     var body: some View {
         ZStack {
@@ -23,7 +22,6 @@ struct LaunchSplash: View {
                 settled = true
                 return
             }
-            bouncePlay = true
             try? await Task.sleep(for: LaunchMotion.duration)
             guard !Task.isCancelled else { return }
             settled = true
@@ -38,7 +36,7 @@ struct LaunchSplash: View {
         } else {
             Color.clear
                 .frame(width: LaunchMotion.whaleSize + 80, height: LaunchMotion.whaleSize + 70)
-                .keyframeAnimator(initialValue: BounceFrame(), trigger: bouncePlay) { _, frame in
+                .keyframeAnimator(initialValue: BounceFrame(), repeating: true) { _, frame in
                     BounceMark(frame: frame, colorScheme: scheme)
                 } keyframes: { _ in
                     KeyframeTrack(\.y) {
@@ -147,15 +145,8 @@ private struct BounceMark: View {
         colorScheme == .dark ? Color.black : Color(red: 15 / 255, green: 17 / 255, blue: 21 / 255)
     }
 
-    @ViewBuilder
     private var whale: some View {
-        if let image = WhaleImage.template {
-            Image(nsImage: image)
-                .resizable()
-                .renderingMode(.template)
-                .interpolation(.high)
-                .aspectRatio(contentMode: .fit)
-        }
+        WhaleGlyph(size: LaunchMotion.whaleSize, colorScheme: colorScheme)
     }
 }
 
@@ -168,8 +159,27 @@ private struct BounceFrame {
     var shadowBlur: CGFloat = 5
 }
 
+struct WhaleGlyph: View {
+    var size: CGFloat
+    var colorScheme: ColorScheme
+
+    var body: some View {
+        Group {
+            if let image = WhaleImage.template {
+                Image(nsImage: image)
+                    .resizable()
+                    .renderingMode(.template)
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+            }
+        }
+        .frame(width: size, height: size)
+        .foregroundStyle(colorScheme == .dark ? .white : Color(red: 15 / 255, green: 17 / 255, blue: 21 / 255))
+    }
+}
+
 @MainActor
-private enum WhaleImage {
+enum WhaleImage {
     static let template: NSImage? = {
         guard let url = Bundle.module.url(forResource: "whale", withExtension: "svg") else {
             return nil

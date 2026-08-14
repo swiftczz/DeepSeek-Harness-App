@@ -19,12 +19,8 @@ enum DshUpdater {
         return DshUpdateInfo(current: currentVersion, latest: latest.version, registry: latest.registry)
     }
 
-    static func fetchLatestVersion() async -> String? {
-        await fetchLatest()?.version
-    }
-
     private static func fetchLatest() async -> (version: String, registry: URL)? {
-        for registry in await registries() {
+        for registry in await NpmRegistry.candidates() {
             guard let url = latestURL(for: registry) else { continue }
             do {
                 var request = URLRequest(url: url, timeoutInterval: 8)
@@ -44,52 +40,6 @@ enum DshUpdater {
             }
         }
         return nil
-    }
-
-    private static func registries() async -> [URL] {
-        var urls: [URL] = []
-        if let configured = await Task.detached(operation: { npmConfiguredRegistry() }).value {
-            urls.append(configured)
-        }
-        urls.append(contentsOf: [
-            URL(string: "https://registry.npmmirror.com")!,
-            URL(string: "https://registry.npmjs.org")!,
-        ])
-
-        var seen = Set<String>()
-        return urls.filter { seen.insert($0.absoluteString).inserted }
-    }
-
-    private static func npmConfiguredRegistry() -> URL? {
-        guard let npm = DshResolver.findNpm() else { return nil }
-
-        let process = Process()
-        process.executableURL = npm
-        process.arguments = ["config", "get", "registry"]
-        process.environment = ShellPath.processEnvironment()
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        process.standardInput = FileHandle.nullDevice
-
-        do {
-            try process.run()
-        } catch {
-            return nil
-        }
-
-        let deadline = Date().addingTimeInterval(3)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
-        }
-        if process.isRunning {
-            process.terminate()
-            return nil
-        }
-
-        let text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return URL(string: text)
     }
 
     private static func latestURL(for registry: URL) -> URL? {

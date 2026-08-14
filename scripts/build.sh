@@ -20,8 +20,8 @@ clear_stale_module_cache() {
   if grep -aFq -- "$root/.build" "$pcm"; then
     return 0
   fi
-  echo "==> Stale module cache from a previous project path; cleaning .build"
-  rm -rf "$root/.build"
+  echo "==> Stale module cache from a previous project path; cleaning ModuleCache"
+  find "$root/.build" -type d -name ModuleCache -prune -exec rm -rf {} + 2>/dev/null || true
 }
 
 # 版本号优先级：环境变量 APP_VERSION > 最近的 git tag（去掉 v 前缀）> Info.plist 里的值 > 0.0.0-dev
@@ -192,7 +192,7 @@ case "${1:-release}" in
     build_only "${@:2}"
     ;;
   debug|Debug|release|Release)
-    build_local "$1"
+    build_local "${1:-release}"
     ;;
   -h|--help|help)
     print_usage
