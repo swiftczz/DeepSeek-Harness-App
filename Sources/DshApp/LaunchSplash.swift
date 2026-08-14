@@ -1,167 +1,84 @@
 import AppKit
 import SwiftUI
 
-enum LaunchMotion {
-    static let duration: Duration = .milliseconds(1740)
-    static let whaleSize: CGFloat = 132
-}
-
 struct LaunchSplash: View {
-    @Binding var settled: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @State private var revealed = false
 
     var body: some View {
         ZStack {
-            canvas
-            mark
+            groundProjection
+            whale
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppCanvas.fill(colorScheme))
         .ignoresSafeArea()
-        .task {
+        .onAppear {
             if reduceMotion {
-                settled = true
+                revealed = true
                 return
             }
-            try? await Task.sleep(for: LaunchMotion.duration)
-            guard !Task.isCancelled else { return }
-            settled = true
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.05)) {
+                revealed = true
+            }
         }
-    }
-
-    @ViewBuilder
-    private var mark: some View {
-        let scheme = colorScheme
-        if reduceMotion {
-            BounceMark(frame: BounceFrame(), colorScheme: scheme)
-        } else {
-            Color.clear
-                .frame(width: LaunchMotion.whaleSize + 80, height: LaunchMotion.whaleSize + 70)
-                .keyframeAnimator(initialValue: BounceFrame(), repeating: true) { _, frame in
-                    BounceMark(frame: frame, colorScheme: scheme)
-                } keyframes: { _ in
-                    KeyframeTrack(\.y) {
-                        LinearKeyframe(8, duration: 0.12)
-                        SpringKeyframe(-30, duration: 0.34)
-                        SpringKeyframe(0, duration: 0.26)
-                        LinearKeyframe(0, duration: 0.18)
-                        LinearKeyframe(6, duration: 0.10)
-                        SpringKeyframe(-22, duration: 0.30)
-                        SpringKeyframe(0, duration: 0.24)
-                        LinearKeyframe(0, duration: 0.20)
-                    }
-                    KeyframeTrack(\.sx) {
-                        LinearKeyframe(1.14, duration: 0.12)
-                        LinearKeyframe(0.90, duration: 0.34)
-                        LinearKeyframe(1.16, duration: 0.10)
-                        SpringKeyframe(1.00, duration: 0.34)
-                        LinearKeyframe(1.10, duration: 0.10)
-                        LinearKeyframe(0.93, duration: 0.30)
-                        LinearKeyframe(1.10, duration: 0.10)
-                        SpringKeyframe(1.00, duration: 0.34)
-                    }
-                    KeyframeTrack(\.sy) {
-                        LinearKeyframe(0.86, duration: 0.12)
-                        LinearKeyframe(1.14, duration: 0.34)
-                        LinearKeyframe(0.86, duration: 0.10)
-                        SpringKeyframe(1.00, duration: 0.34)
-                        LinearKeyframe(0.90, duration: 0.10)
-                        LinearKeyframe(1.10, duration: 0.30)
-                        LinearKeyframe(0.90, duration: 0.10)
-                        SpringKeyframe(1.00, duration: 0.34)
-                    }
-                    KeyframeTrack(\.shadowSX) {
-                        LinearKeyframe(0.82, duration: 0.12)
-                        LinearKeyframe(1.55, duration: 0.34)
-                        LinearKeyframe(0.72, duration: 0.10)
-                        SpringKeyframe(1.00, duration: 0.34)
-                        LinearKeyframe(0.88, duration: 0.10)
-                        LinearKeyframe(1.35, duration: 0.30)
-                        LinearKeyframe(0.80, duration: 0.10)
-                        SpringKeyframe(1.00, duration: 0.34)
-                    }
-                    KeyframeTrack(\.shadowOpacity) {
-                        LinearKeyframe(0.40, duration: 0.12)
-                        LinearKeyframe(0.10, duration: 0.34)
-                        LinearKeyframe(0.46, duration: 0.10)
-                        SpringKeyframe(0.24, duration: 0.34)
-                        LinearKeyframe(0.34, duration: 0.10)
-                        LinearKeyframe(0.12, duration: 0.30)
-                        LinearKeyframe(0.38, duration: 0.10)
-                        SpringKeyframe(0.24, duration: 0.34)
-                    }
-                    KeyframeTrack(\.shadowBlur) {
-                        LinearKeyframe(3, duration: 0.12)
-                        LinearKeyframe(10, duration: 0.34)
-                        LinearKeyframe(2, duration: 0.10)
-                        SpringKeyframe(5, duration: 0.34)
-                        LinearKeyframe(3.5, duration: 0.10)
-                        LinearKeyframe(8, duration: 0.30)
-                        LinearKeyframe(2.5, duration: 0.10)
-                        SpringKeyframe(5, duration: 0.34)
-                    }
-                }
-        }
-    }
-
-    private var canvas: some View {
-        (colorScheme == .dark
-            ? Color(red: 21 / 255, green: 21 / 255, blue: 23 / 255)
-            : Color.white)
-    }
-}
-
-private struct BounceMark: View {
-    var frame: BounceFrame
-    var colorScheme: ColorScheme
-
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            Ellipse()
-                .fill(shadowColor)
-                .frame(width: LaunchMotion.whaleSize * 0.75, height: 18)
-                .blur(radius: frame.shadowBlur)
-                .scaleEffect(x: frame.shadowSX, y: 1)
-                .opacity(frame.shadowOpacity)
-                .offset(y: 12)
-
-            whale
-                .frame(width: LaunchMotion.whaleSize, height: LaunchMotion.whaleSize)
-                .foregroundStyle(markColor)
-                .scaleEffect(x: frame.sx, y: frame.sy, anchor: .bottom)
-                .offset(y: frame.y)
-        }
-        .frame(
-            width: LaunchMotion.whaleSize + 80,
-            height: LaunchMotion.whaleSize + 70,
-            alignment: .bottom
-        )
-    }
-
-    private var markColor: Color {
-        colorScheme == .dark ? .white : Color(red: 15 / 255, green: 17 / 255, blue: 21 / 255)
-    }
-
-    private var shadowColor: Color {
-        colorScheme == .dark ? Color.black : Color(red: 15 / 255, green: 17 / 255, blue: 21 / 255)
     }
 
     private var whale: some View {
-        WhaleGlyph(size: LaunchMotion.whaleSize, colorScheme: colorScheme)
+        WhaleGlyph(size: 128, colorScheme: colorScheme)
+            .opacity(revealed ? 1 : 0)
+            .scaleEffect(revealed ? 1 : 0.88)
+            .offset(y: revealed ? 0 : 20)
+    }
+
+    private var groundProjection: some View {
+        ZStack {
+            flattenedWhale
+                .blur(radius: 14)
+                .opacity(colorScheme == .dark ? 0.55 : 0.28)
+                .scaleEffect(x: 1.18, y: 1, anchor: .bottom)
+            flattenedWhale
+                .blur(radius: 4)
+                .opacity(colorScheme == .dark ? 0.95 : 0.55)
+        }
+        .opacity(revealed ? 1 : 0)
+    }
+
+    private var flattenedWhale: some View {
+        WhaleGlyph(size: 128, colorScheme: colorScheme, ink: .black)
+            .rotation3DEffect(
+                .degrees(80),
+                axis: (x: 1, y: 0, z: 0),
+                anchor: .bottom,
+                perspective: 0.55
+            )
+            .scaleEffect(x: 1.22, y: 1, anchor: .bottom)
+            .offset(y: 10)
     }
 }
 
-private struct BounceFrame {
-    var y: CGFloat = 0
-    var sx: CGFloat = 1
-    var sy: CGFloat = 1
-    var shadowSX: CGFloat = 1
-    var shadowOpacity: CGFloat = 0.24
-    var shadowBlur: CGFloat = 5
+enum AppCanvas {
+    static func fill(_ scheme: ColorScheme) -> Color {
+        scheme == .dark
+            ? Color(red: 21 / 255, green: 21 / 255, blue: 23 / 255)
+            : Color.white
+    }
+
+    static var windowColor: NSColor {
+        NSColor(name: nil) { appearance in
+            let dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return dark
+                ? NSColor(srgbRed: 21 / 255, green: 21 / 255, blue: 23 / 255, alpha: 1)
+                : .white
+        }
+    }
 }
 
 struct WhaleGlyph: View {
     var size: CGFloat
     var colorScheme: ColorScheme
+    var ink: Color? = nil
 
     var body: some View {
         Group {
@@ -174,7 +91,8 @@ struct WhaleGlyph: View {
             }
         }
         .frame(width: size, height: size)
-        .foregroundStyle(colorScheme == .dark ? .white : Color(red: 15 / 255, green: 17 / 255, blue: 21 / 255))
+        .foregroundStyle(ink ?? (colorScheme == .dark ? .white : Color(red: 15 / 255, green: 17 / 255, blue: 21 / 255)))
+        .compositingGroup()
     }
 }
 

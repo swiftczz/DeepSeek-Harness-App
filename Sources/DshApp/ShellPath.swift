@@ -49,7 +49,7 @@ enum ShellPath {
         let nvmRoot = ProcessInfo.processInfo.environment["NVM_DIR"] ?? "\(home)/.nvm"
         let versions = URL(fileURLWithPath: nvmRoot).appendingPathComponent("versions/node")
         if let names = try? fm.contentsOfDirectory(atPath: versions.path) {
-            for name in names.sorted(by: >) {
+            for name in names.sorted(by: isNewerVersion) {
                 directories.append(versions.appendingPathComponent("\(name)/bin").path)
             }
         }
@@ -64,6 +64,37 @@ enum ShellPath {
         ])
 
         return directories.filter { fm.fileExists(atPath: $0) }
+    }
+
+    private static func isNewerVersion(_ lhs: String, _ rhs: String) -> Bool {
+        let left = versionNumbers(lhs)
+        let right = versionNumbers(rhs)
+        let count = max(left.count, right.count)
+        for index in 0..<count {
+            let a = index < left.count ? left[index] : 0
+            let b = index < right.count ? right[index] : 0
+            if a != b {
+                return a > b
+            }
+        }
+        return false
+    }
+
+    private static func versionNumbers(_ name: String) -> [Int] {
+        var numbers: [Int] = []
+        var current = ""
+        for character in name {
+            if character.isNumber {
+                current.append(character)
+            } else if !current.isEmpty {
+                numbers.append(Int(current) ?? 0)
+                current = ""
+            }
+        }
+        if !current.isEmpty {
+            numbers.append(Int(current) ?? 0)
+        }
+        return numbers
     }
 
     private static func loginShellWhich(_ name: String) -> URL? {

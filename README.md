@@ -53,9 +53,9 @@ open "dist/DeepSeek Harness.app"
 ### 构建发布 DMG
 
 ```bash
-APP_VERSION=0.1.0 ./scripts/build.sh --build-only universal --sign --dmg
-APP_VERSION=0.1.0 ./scripts/build.sh --build-only arm64     --sign --dmg
-APP_VERSION=0.1.0 ./scripts/build.sh --build-only x86_64    --sign --dmg
+./scripts/build.sh --build-only universal --sign --dmg
+./scripts/build.sh --build-only arm64     --sign --dmg
+./scripts/build.sh --build-only x86_64    --sign --dmg
 ```
 
 - `--build-only <arch>`：使用 release 配置构建 `universal`、`arm64` 或 `x86_64`
@@ -78,7 +78,7 @@ APP_VERSION=0.1.0 ./scripts/build.sh --build-only x86_64    --sign --dmg
 ```text
 ~/.dshapp/runtime      # 本地 DSH
 ~/.dshapp/npm-cache    # 安装过程中的下载缓存；成功后会清掉 _cacache，失败时可手动删除后重试
-~/Library/Logs/DeepSeek Harness/dsh.log
+~/.dshapp/dsh.log
 ```
 
 ## 技术栈

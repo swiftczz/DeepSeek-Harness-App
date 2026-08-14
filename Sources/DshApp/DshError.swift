@@ -14,9 +14,9 @@ enum DshError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingNode:
-            return "没有找到 Node.js。请先安装 Node 22+（例如 brew install node），或确保 /opt/homebrew/bin 可用。"
+            return "没有找到 Node.js。运行和安装 DSH 都至少需要 Node 22+。\n\nbrew install node"
         case .missingInstaller:
-            return "没有找到 bun 或 npm，无法自动安装 DSH。"
+            return "没有找到 bun 或 npm，无法下载 DSH。Node 已安装的话，一般会自带 npm；也可以再装 bun：\n\nbrew install bun"
         case .missingEntry:
             return "没有找到 DSH 入口文件。"
         case .spawnFailed(let message):

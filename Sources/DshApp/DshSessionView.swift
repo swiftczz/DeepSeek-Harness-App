@@ -16,6 +16,7 @@ struct DshSessionView: View {
         var configuration = WebPage.Configuration()
         configuration.defaultNavigationPreferences.preferredContentMode = .desktop
         configuration.applicationNameForUserAgent = "DeepSeekHarness"
+        configuration.suppressesIncrementalRendering = true
         AppDownload.install(on: configuration.userContentController)
         configuration.userContentController.addUserScript(Self.titlebarInsetScript)
         _page = State(
@@ -29,7 +30,7 @@ struct DshSessionView: View {
     var body: some View {
         WebView(page)
             .webViewElementFullscreenBehavior(.enabled)
-            .webViewMagnificationGestures(.enabled)
+            .webViewMagnificationGestures(.disabled)
             .webViewBackForwardNavigationGestures(.disabled)
             .webViewContentBackground(.hidden)
             .ignoresSafeArea()
@@ -39,7 +40,7 @@ struct DshSessionView: View {
             .task(id: url) {
                 isPainted = false
                 TitlebarChrome.clear()
-                page.isInspectable = true
+                page.isInspectable = false
                 await loadUntilPainted()
                 await Self.syncTitlebar(from: page)
                 isPainted = true
@@ -137,7 +138,7 @@ struct DshSessionView: View {
           style.id = styleId;
           (document.head || document.documentElement).appendChild(style);
         }
-        style.textContent = '[class*="_logoRow"]{margin-top:\(inset)px !important;}';
+        style.textContent = '[class*="_logoRow"]{margin-top:\(inset)px !important;}html,body{overscroll-behavior:none;}';
         const sidebarProbe = document.createElement('div');
         sidebarProbe.style.background = 'var(--dsw-specific-sidebar-fill)';
         document.documentElement.appendChild(sidebarProbe);
@@ -162,7 +163,7 @@ struct DshSessionView: View {
                   style.id = 'dsh-app-titlebar-inset';
                   (document.head || document.documentElement).appendChild(style);
                 }
-                style.textContent = '[class*="_logoRow"]{margin-top:\(inset)px !important;}';
+                style.textContent = '[class*="_logoRow"]{margin-top:\(inset)px !important;}html,body{overscroll-behavior:none;}';
               };
               apply();
               new MutationObserver(apply).observe(document.documentElement, { childList: true });

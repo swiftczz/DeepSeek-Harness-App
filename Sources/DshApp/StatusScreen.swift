@@ -132,9 +132,7 @@ struct InstallProgressScreen: View {
     }
 
     private var canvas: Color {
-        colorScheme == .dark
-            ? Color(red: 21 / 255, green: 21 / 255, blue: 23 / 255)
-            : Color.white
+        AppCanvas.fill(colorScheme)
     }
 }
 
@@ -164,13 +162,15 @@ struct StatusScreen: View {
             }
 
             if isError {
-                Button(retryTitle) {
+                Button("重试") {
                     onRetry?()
                 }
                 .keyboardShortcut(.defaultAction)
 
-                NpmCacheHint(footnote: "安装异常时可删除该目录后重试")
-                    .padding(.top, 4)
+                if showsCacheHint {
+                    NpmCacheHint(footnote: "安装异常时可删除该目录后重试")
+                        .padding(.top, 4)
+                }
             }
         }
         .padding(48)
@@ -178,11 +178,9 @@ struct StatusScreen: View {
         .background(.background)
     }
 
-    private var retryTitle: String {
-        if let message, message.contains("意外退出") || message.contains("超时") {
-            return "重新安装"
-        }
-        return "重试"
+    private var showsCacheHint: Bool {
+        guard let message else { return true }
+        return !message.contains("Node.js") && !message.contains("bun 或 npm")
     }
 }
 

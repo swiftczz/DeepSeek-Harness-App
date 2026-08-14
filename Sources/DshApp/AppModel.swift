@@ -11,13 +11,13 @@ final class AppModel {
         case failed(String)
     }
 
-    var phase: Phase = AppModel.bootstrapPhase()
+    var phase: Phase
     var currentVersion: String?
     var pendingUpdate: DshUpdateInfo?
     var updateAlert: UpdateAlert?
     var isCheckingUpdate = false
     var installProgress = DshInstallProgress.empty
-    var skipLaunchSplash = !DshResolver.hasManagedRuntime
+    var skipLaunchSplash: Bool
     var isInstallingUpdate: Bool {
         if case .installing = phase { true } else { false }
     }
@@ -35,18 +35,26 @@ final class AppModel {
         set { UserDefaults.standard.set(newValue, forKey: "dsh.skippedVersion") }
     }
 
+    init() {
+        DshLog.prepare()
+        if DshResolver.hasManagedRuntime {
+            phase = .starting("正在启动本地 Agent 服务…")
+            skipLaunchSplash = false
+        } else {
+            phase = .starting("正在检查运行环境…")
+            skipLaunchSplash = true
+        }
+    }
+
     func startIfNeeded() async {
         guard !started else { return }
         started = true
-        DshLog.prepare()
-        AppPaths.migrateLegacyRuntimeIfNeeded()
         server.onCrash { [weak self] error in
             Task { @MainActor in
                 self?.phase = .failed(error.localizedDescription)
             }
         }
         await start()
-        Task { await checkForUpdates(interactive: false) }
         startPeriodicUpdateCheck()
     }
 
@@ -64,7 +72,6 @@ final class AppModel {
         do {
             try await installRuntime(version: version)
             await start()
-            Task { await checkForUpdates(interactive: false) }
         } catch {
             phase = .failed(error.localizedDescription)
         }
@@ -123,12 +130,7 @@ final class AppModel {
     }
 
     private func installRuntime(version: String? = nil) async throws {
-        try await DshInstaller.install(version: version) { [weak self] chunk in
-            Task { @MainActor in
-                let line = chunk.split(whereSeparator: \.isNewline).last.map(String.init) ?? "正在安装 DSH…"
-                self?.phase = .installing(line)
-            }
-        } onProgress: { [weak self] progress in
+        try await DshInstaller.install(version: version) { [weak self] progress in
             Task { @MainActor in
                 self?.applyInstallProgress(progress)
             }
@@ -152,6 +154,7 @@ final class AppModel {
         do {
             var plan = try DshResolver.resolveLaunchPlan()
             if plan == nil {
+                _ = try DshResolver.findInstaller()
                 skipLaunchSplash = true
                 installProgress = .empty
                 phase = .installing(
@@ -176,17 +179,6 @@ final class AppModel {
         } catch {
             phase = .failed(error.localizedDescription)
         }
-    }
-
-    private static func bootstrapPhase() -> Phase {
-        AppPaths.migrateLegacyRuntimeIfNeeded()
-        if DshResolver.hasManagedRuntime {
-            return .starting("正在启动本地 Agent 服务…")
-        }
-        if DshResolver.hasIncompleteRuntime {
-            return .installing("上次安装未完成，正在重新安装到 \(AppPaths.runtimeDisplayPath)…")
-        }
-        return .installing("未找到 DSH，正在安装到 \(AppPaths.runtimeDisplayPath)…")
     }
 
     private func startPeriodicUpdateCheck() {

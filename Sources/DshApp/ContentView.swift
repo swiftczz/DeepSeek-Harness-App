@@ -4,7 +4,6 @@ struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
     @State private var sessionPainted = false
-    @State private var splashSettled = false
 
     var body: some View {
         ZStack {
@@ -25,13 +24,9 @@ struct ContentView: View {
         .ignoresSafeArea()
         .background(TitlebarChromeHost())
         .overlay {
-            ZStack {
-                if showsSplash {
-                    LaunchSplash(settled: $splashSettled)
-                        .transition(.opacity)
-                }
+            if showsSplash {
+                LaunchSplash()
             }
-            .animation(.easeOut(duration: 0.5), value: showsSplash)
         }
         .alert(
             "DSH 已是最新版本",
@@ -66,7 +61,6 @@ struct ContentView: View {
         .onChange(of: model.phase) { _, phase in
             if case .ready = phase { return }
             sessionPainted = false
-            splashSettled = false
             TitlebarChrome.clear()
         }
         .task {
@@ -86,7 +80,7 @@ struct ContentView: View {
             if model.skipLaunchSplash {
                 false
             } else {
-                !sessionPainted || !splashSettled
+                !sessionPainted
             }
         }
     }

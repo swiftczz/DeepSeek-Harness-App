@@ -19,7 +19,7 @@ enum TitlebarChrome {
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
         window.styleMask.insert(.fullSizeContentView)
-        window.backgroundColor = .windowBackgroundColor
+        window.backgroundColor = AppCanvas.windowColor
         stripMaterials(in: window)
     }
 

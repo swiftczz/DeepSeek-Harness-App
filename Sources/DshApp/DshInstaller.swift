@@ -41,11 +41,11 @@ enum DshInstaller {
 
     static func install(
         version: String? = nil,
-        onOutput: @escaping @Sendable (String) -> Void,
         onProgress: @escaping @Sendable (DshInstallProgress) -> Void = { _ in }
     ) async throws {
         _ = try DshResolver.findNode()
         let installer = try DshResolver.findInstaller()
+        resetMeasuredBytes()
 
         let prefix = AppPaths.managedRuntimeDirectory
         let cache = AppPaths.npmCacheDirectory
@@ -64,7 +64,6 @@ enum DshInstaller {
         for (index, registry) in registries.enumerated() {
             let host = NpmRegistry.host(registry)
             let status = "正在用 \(installer.name) 从 \(host) 下载…"
-            onOutput(status)
             onProgress(
                 DshInstallProgress(
                     bytes: measuredBytes(),
@@ -98,10 +97,24 @@ enum DshInstaller {
                 if index == registries.count - 1 {
                     break
                 }
-                onOutput("\(host) 没有下载进度，改用下一个源…")
+                onProgress(
+                    DshInstallProgress(
+                        bytes: measuredBytes(),
+                        fraction: 0,
+                        message: "\(host) 没有下载进度，改用下一个源…",
+                        host: host,
+                        stage: "正在切换源…",
+                        packageName: "",
+                        recentPackages: [],
+                        resolvedCount: 0,
+                        downloadedCount: 0,
+                        cachedCount: 0
+                    )
+                )
                 if !DshResolver.hasManagedRuntime {
                     try DshResolver.removeIncompleteRuntime()
                     try FileManager.default.createDirectory(at: prefix, withIntermediateDirectories: true)
+                    resetMeasuredBytes()
                 }
             }
         }
@@ -111,6 +124,7 @@ enum DshInstaller {
         }
 
         let finalBytes = directoryBytes(prefix)
+        resetMeasuredBytes()
         onProgress(
             DshInstallProgress(
                 bytes: finalBytes,
@@ -310,8 +324,28 @@ enum DshInstaller {
         )
     }
 
+    private static let sizeLock = NSLock()
+    nonisolated(unsafe) private static var cachedSize: (at: Date, bytes: Int64)?
+
+    private static func resetMeasuredBytes() {
+        sizeLock.lock()
+        cachedSize = nil
+        sizeLock.unlock()
+    }
+
     private static func measuredBytes() -> Int64 {
-        directoryBytes(AppPaths.managedRuntimeDirectory) + directoryBytes(AppPaths.npmCacheDirectory)
+        sizeLock.lock()
+        if let cached = cachedSize, Date().timeIntervalSince(cached.at) < 1 {
+            let bytes = cached.bytes
+            sizeLock.unlock()
+            return bytes
+        }
+        sizeLock.unlock()
+        let bytes = directoryBytes(AppPaths.managedRuntimeDirectory) + directoryBytes(AppPaths.npmCacheDirectory)
+        sizeLock.lock()
+        cachedSize = (Date(), bytes)
+        sizeLock.unlock()
+        return bytes
     }
 
     private static func directoryBytes(_ url: URL) -> Int64 {

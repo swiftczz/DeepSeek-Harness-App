@@ -78,7 +78,7 @@ enum AppDownload {
         await copyCookies(into: &request)
 
         do {
-            let (temp, response) = try await URLSession.shared.download(for: request)
+            let (temp, response) = try await AppHTTP.session.download(for: request)
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                 DshLog.append("[download] HTTP \(http.statusCode) \(request.url?.absoluteString ?? "")\n")
                 try? FileManager.default.removeItem(at: temp)

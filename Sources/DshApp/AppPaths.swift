@@ -1,7 +1,6 @@
 import Foundation
 
 enum AppPaths {
-    static let appName = "DeepSeek Harness"
     static let runtimeHomeName = ".dshapp"
 
     static var homeDirectory: URL {
@@ -49,96 +48,31 @@ enum AppPaths {
         try? process.run()
     }
 
-    static var logDirectory: URL {
-        let root = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library")
-        return root.appendingPathComponent("Logs/\(appName)", isDirectory: true)
-    }
-
     static var logFile: URL {
-        logDirectory.appendingPathComponent("dsh.log")
-    }
-
-    private static var previousHomeDirectory: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".deepseek-harness", isDirectory: true)
-    }
-
-    private static var legacyRuntimeDirectories: [URL] {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? home.appendingPathComponent("Library/Application Support")
-        return [
-            previousHomeDirectory.appendingPathComponent("runtime", isDirectory: true),
-            home.appendingPathComponent(".DeepSeek Harness", isDirectory: true)
-                .appendingPathComponent("runtime", isDirectory: true),
-            appSupport.appendingPathComponent(appName, isDirectory: true)
-                .appendingPathComponent("runtime", isDirectory: true),
-        ]
-    }
-
-    static func migrateLegacyRuntimeIfNeeded() {
-        migratePreviousHomeIfNeeded()
-
-        let fm = FileManager.default
-        if fm.isReadableFile(atPath: managedEntry.path) {
-            return
-        }
-
-        for legacy in legacyRuntimeDirectories {
-            let legacyEntry = legacy.appendingPathComponent("node_modules/@deepseek-ai/dsh/lib/bin.js")
-            guard fm.isReadableFile(atPath: legacyEntry.path) else {
-                continue
-            }
-
-            do {
-                try fm.createDirectory(at: homeDirectory, withIntermediateDirectories: true)
-                if fm.fileExists(atPath: managedRuntimeDirectory.path) {
-                    try fm.removeItem(at: managedRuntimeDirectory)
-                }
-                try fm.moveItem(at: legacy, to: managedRuntimeDirectory)
-                DshLog.append("[runtime] migrated \(legacy.path) -> \(managedRuntimeDirectory.path)\n")
-                removeEmptyParentIfNeeded(legacy.deletingLastPathComponent())
-            } catch {
-                DshLog.append("[runtime] migrate failed: \(error.localizedDescription)\n")
-            }
-            return
-        }
-    }
-
-    private static func migratePreviousHomeIfNeeded() {
-        let fm = FileManager.default
-        let previous = previousHomeDirectory
-        guard fm.fileExists(atPath: previous.path) else { return }
-        guard !fm.fileExists(atPath: homeDirectory.path) else { return }
-        do {
-            try fm.moveItem(at: previous, to: homeDirectory)
-            DshLog.append("[runtime] migrated \(previous.path) -> \(homeDirectory.path)\n")
-        } catch {
-            DshLog.append("[runtime] migrate home failed: \(error.localizedDescription)\n")
-        }
-    }
-
-    private static func removeEmptyParentIfNeeded(_ directory: URL) {
-        let fm = FileManager.default
-        guard let items = try? fm.contentsOfDirectory(atPath: directory.path), items.isEmpty else {
-            return
-        }
-        try? fm.removeItem(at: directory)
+        homeDirectory.appendingPathComponent("dsh.log")
     }
 }
 
 enum DshLog {
     private static let queue = DispatchQueue(label: "ai.deepseek.dsh.desktop.swift.log")
+    nonisolated(unsafe) private static let timestamp = ISO8601DateFormatter()
+    private static let maxBytes: UInt64 = 2 * 1024 * 1024
+    private static let keptBytes: UInt64 = 1024 * 1024
     nonisolated(unsafe) private static var handle: FileHandle?
 
     static func prepare() {
         queue.sync {
+            try? handle?.close()
+            handle = nil
             let fm = FileManager.default
-            try? fm.createDirectory(at: AppPaths.logDirectory, withIntermediateDirectories: true)
+            try? fm.createDirectory(
+                at: AppPaths.logFile.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
             if !fm.fileExists(atPath: AppPaths.logFile.path) {
                 fm.createFile(atPath: AppPaths.logFile.path, contents: nil)
             }
+            trimIfNeeded()
             handle = try? FileHandle(forWritingTo: AppPaths.logFile)
             _ = try? handle?.seekToEnd()
         }
@@ -146,7 +80,7 @@ enum DshLog {
 
     static func append(_ text: String) {
         queue.async {
-            let line = "\(ISO8601DateFormatter().string(from: Date())) \(text)"
+            let line = "\(timestamp.string(from: Date())) \(text)"
             fputs(line, stderr)
             if let data = line.data(using: .utf8) {
                 try? handle?.write(contentsOf: data)
@@ -161,4 +95,26 @@ enum DshLog {
         process.arguments = ["-R", AppPaths.logFile.path]
         try? process.run()
     }
+
+    private static func trimIfNeeded() {
+        let url = AppPaths.logFile
+        guard let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber,
+              size.uint64Value > maxBytes,
+              let reader = try? FileHandle(forReadingFrom: url) else { return }
+        defer { try? reader.close() }
+        let total = (try? reader.seekToEnd()) ?? 0
+        guard total > keptBytes else { return }
+        try? reader.seek(toOffset: total - keptBytes)
+        guard var data = try? reader.readToEnd(), !data.isEmpty else { return }
+        if let newline = data.firstIndex(of: UInt8(ascii: "\n")), newline + 1 < data.count {
+            data = Data(data[(newline + 1)...])
+        }
+        var kept = Data("# log trimmed\n".utf8)
+        kept.append(data)
+        try? kept.write(to: url, options: .atomic)
+    }
+}
+
+enum AppHTTP {
+    static let session = URLSession(configuration: .ephemeral)
 }

@@ -25,11 +25,14 @@ struct DshApp: App {
             CommandGroup(replacing: .appInfo) {
                 Button("关于 DeepSeek Harness", systemImage: "info.circle") {
                     let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
-                    let dsh = model.currentVersion ?? (try? DshResolver.resolveLaunchPlan())?.version
-                    NSApp.orderFrontStandardAboutPanel(options: [
+                    let dsh = model.currentVersion ?? DshResolver.readVersion(at: AppPaths.managedEntry)
+                    var options: [NSApplication.AboutPanelOptionKey: Any] = [
                         .applicationVersion: version,
-                        .version: dsh.map { "DSH \($0)" } ?? "",
-                    ])
+                    ]
+                    if let dsh, !dsh.isEmpty {
+                        options[.version] = "DSH \(dsh)"
+                    }
+                    NSApp.orderFrontStandardAboutPanel(options: options)
                 }
             }
             CommandGroup(after: .appInfo) {
